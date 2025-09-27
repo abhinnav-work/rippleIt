@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+
+{% block title %}RippleIt - Clone Git Repositories{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-body text-center p-5">
+                <h1 class="display-4 mb-4 ripple-logo">
+                    <i class="fas fa-code-branch me-3"></i>RippleIt
+                </h1>
+                <p class="lead text-muted mb-5">
+                    Clone and explore remote Git repositories with ease. 
+                    Enter a Git URL below to get started.
+                </p>
+                
+                <form id="cloneForm" class="mb-4">
+                    <div class="row mb-3">
+                        <div class="col-md-8">
+                            <div class="input-group input-group-lg">
+                                <span class="input-group-text bg-transparent border-end-0">
+                                    <i class="fas fa-link text-muted"></i>
+                                </span>
+                                <input type="url" 
+                                       class="form-control border-start-0" 
+                                       id="gitUrl" 
+                                       placeholder="https://github.com/username/repository.git"
+                                       required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <button class="btn btn-primary w-100" type="submit" id="cloneBtn">
+                                <i class="fas fa-download me-2"></i>Clone Repository
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="input-group mb-3">
+                                <span class="input-group-text bg-transparent border-end-0">
+                                    <i class="fas fa-user text-muted"></i>
+                                </span>
+                                <input type="text" 
+                                       class="form-control border-start-0" 
+                                       id="username" 
+                                       placeholder="Username (optional for private repos)">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="input-group mb-3">
+                                <span class="input-group-text bg-transparent border-end-0">
+                                    <i class="fas fa-key text-muted"></i>
+                                </span>
+                                <input type="password" 
+                                       class="form-control border-start-0" 
+                                       id="accessToken" 
+                                       placeholder="Access Token (optional for private repos)">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Authentication:</strong> For private repositories, provide your username and access token. 
+                        For public repositories, these fields are optional.
+                    </div>
+                </form>
+
+                <div id="alertContainer"></div>
+
+                <div class="row mt-5">
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <div class="mb-3">
+                                <i class="fas fa-cloud-download-alt fa-3x text-white"></i>
+                            </div>
+                            <h5>Clone Any Repository</h5>
+                            <p class="text-muted small">Support for GitHub, GitLab, Bitbucket and more</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <div class="mb-3">
+                                <i class="fas fa-folder-tree fa-3x text-white"></i>
+                            </div>
+                            <h5>Browse Structure</h5>
+                            <p class="text-muted small">Explore files and folders in a beautiful interface</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <div class="mb-3">
+                                <i class="fas fa-magic fa-3x text-white"></i>
+                            </div>
+                            <h5>Modern UI</h5>
+                            <p class="text-muted small">Clean, responsive design with smooth animations</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-history me-2"></i>Recent Projects
+                </h5>
+                <div id="recentProjects">
+                    <p class="text-muted">No projects cloned yet. Start by cloning your first repository!</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('cloneForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const gitUrl = document.getElementById('gitUrl').value;
+    const username = document.getElementById('username').value;
+    const accessToken = document.getElementById('accessToken').value;
+    const cloneBtn = document.getElementById('cloneBtn');
+    const alertContainer = document.getElementById('alertContainer');
+    const originalBtnText = cloneBtn.innerHTML;
+    
+    // Show loading state
+    showLoading(cloneBtn);
+    alertContainer.innerHTML = '';
+    
+    try {
+        const response = await fetch('/clone', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+                git_url: gitUrl,
+                username: username,
+                access_token: accessToken
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Show success message
+            alertContainer.innerHTML = `
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    <i class="fas fa-check-circle me-2"></i>
+                    ${data.message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            
+            // Clear form
+            document.getElementById('gitUrl').value = '';
+            document.getElementById('username').value = '';
+            document.getElementById('accessToken').value = '';
+            
+            // Redirect to project view after a short delay
+            setTimeout(() => {
+                window.location.href = `/project/${data.project_name}`;
+            }, 1500);
+            
+        } else {
+            // Show error message
+            alertContainer.innerHTML = `
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    ${data.error}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+        }
+    } catch (error) {
+        alertContainer.innerHTML = `
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <i class="fas fa-exclamation-circle me-2"></i>
+                An error occurred while cloning the repository.
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+    } finally {
+        hideLoading(cloneBtn, originalBtnText);
+    }
+});
+
+// Load recent projects on page load
+async function loadRecentProjects() {
+    try {
+        const response = await fetch('/projects');
+        const text = await response.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(text, 'text/html');
+        const projects = doc.querySelectorAll('.project-card');
+        
+        const recentProjectsContainer = document.getElementById('recentProjects');
+        if (projects.length > 0) {
+            recentProjectsContainer.innerHTML = `
+                <div class="row">
+                    ${Array.from(projects).slice(0, 3).map(project => project.outerHTML).join('')}
+                </div>
+                <div class="text-center mt-3">
+                    <a href="/projects" class="btn btn-outline-primary">
+                        <i class="fas fa-eye me-2"></i>View All Projects
+                    </a>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Error loading recent projects:', error);
+    }
+}
+
+// Load recent projects when page loads
+document.addEventListener('DOMContentLoaded', loadRecentProjects);
+</script>
+{% endblock %}

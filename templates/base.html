@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}RippleIt{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #000000;
+            --secondary-color: #333333;
+            --accent-color: #ffffff;
+            --dark-bg: #000000;
+            --card-bg: #1a1a1a;
+            --text-light: #ffffff;
+        }
+
+        body {
+            background: linear-gradient(135deg, #000000 0%, #333333 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+        }
+
+        .navbar {
+            background: rgba(0, 0, 0, 0.95) !important;
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .navbar-brand {
+            font-weight: bold;
+            color: var(--accent-color) !important;
+            font-size: 1.5rem;
+        }
+
+        .card {
+            background: rgba(26, 26, 26, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #000000, #333333);
+            border: 1px solid #ffffff;
+            border-radius: 25px;
+            padding: 10px 30px;
+            transition: all 0.3s ease;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 255, 255, 0.2);
+            background: linear-gradient(45deg, #333333, #000000);
+        }
+
+        .form-control {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            color: white;
+            padding: 12px 15px;
+        }
+
+        .form-control:focus {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: #ffffff;
+            box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.25);
+            color: white;
+        }
+
+        .form-control::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .text-muted {
+            color: rgba(255, 255, 255, 0.7) !important;
+        }
+
+        .alert {
+            border-radius: 10px;
+            border: none;
+        }
+
+        .file-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 8px 12px;
+            margin: 2px 0;
+            transition: all 0.2s ease;
+        }
+
+        .file-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(5px);
+        }
+
+        .directory-item {
+            background: rgba(255, 255, 255, 0.1);
+            border-left: 3px solid #ffffff;
+        }
+
+        .spinner-border {
+            color: #ffffff;
+        }
+
+        .project-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .project-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .ripple-logo {
+            background: linear-gradient(45deg, #ffffff, #cccccc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Light Mode Styles */
+        body.light-mode {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            color: #333333;
+        }
+
+        body.light-mode .navbar {
+            background: rgba(255, 255, 255, 0.95) !important;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        body.light-mode .navbar-brand {
+            color: #000000 !important;
+        }
+
+        body.light-mode .nav-link {
+            color: #333333 !important;
+        }
+
+        body.light-mode .card {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        body.light-mode .btn-primary {
+            background: linear-gradient(45deg, #000000, #333333);
+            border: 1px solid #000000;
+            color: white;
+        }
+
+        body.light-mode .btn-primary:hover {
+            background: linear-gradient(45deg, #333333, #000000);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        body.light-mode .form-control {
+            background: rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0, 0, 0, 0.2);
+            color: #333333;
+        }
+
+        body.light-mode .form-control:focus {
+            background: rgba(0, 0, 0, 0.08);
+            border-color: #000000;
+            box-shadow: 0 0 0 0.2rem rgba(0, 0, 0, 0.25);
+            color: #333333;
+        }
+
+        body.light-mode .form-control::placeholder {
+            color: rgba(0, 0, 0, 0.5);
+        }
+
+        body.light-mode .text-muted {
+            color: rgba(0, 0, 0, 0.6) !important;
+        }
+
+        body.light-mode .file-item:hover {
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        body.light-mode .directory-item {
+            background: rgba(0, 0, 0, 0.05);
+            border-left: 3px solid #000000;
+        }
+
+        body.light-mode .spinner-border {
+            color: #000000;
+        }
+
+        body.light-mode .ripple-logo {
+            background: linear-gradient(45deg, #000000, #333333);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        body.light-mode .text-white {
+            color: #000000 !important;
+        }
+
+        /* Theme Toggle Button */
+        .theme-toggle {
+            background: none;
+            border: none;
+            color: inherit;
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .theme-toggle:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        body.light-mode .theme-toggle:hover {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        /* File Content Styling */
+        .file-content-container {
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .file-content {
+            max-height: 600px;
+            overflow: auto;
+        }
+
+        .code-container {
+            display: flex;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .line-numbers {
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.6);
+            padding: 15px 10px;
+            text-align: right;
+            user-select: none;
+            min-width: 50px;
+            border-right: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .line-numbers pre {
+            margin: 0;
+            white-space: pre;
+        }
+
+        .code-content {
+            flex: 1;
+            padding: 15px;
+            color: #ffffff;
+        }
+
+        .code-content pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .code-content code {
+            background: none;
+            padding: 0;
+            color: inherit;
+        }
+
+        /* Light mode file content */
+        body.light-mode .file-content-container {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        body.light-mode .line-numbers {
+            background: rgba(0, 0, 0, 0.05);
+            color: rgba(0, 0, 0, 0.6);
+            border-right: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        body.light-mode .code-content {
+            color: #333333;
+        }
+
+        /* Syntax highlighting classes */
+        .language-python .keyword { color: #ff79c6; }
+        .language-python .string { color: #f1fa8c; }
+        .language-python .comment { color: #6272a4; }
+        .language-python .number { color: #bd93f9; }
+
+        .language-javascript .keyword { color: #ff79c6; }
+        .language-javascript .string { color: #f1fa8c; }
+        .language-javascript .comment { color: #6272a4; }
+        .language-javascript .number { color: #bd93f9; }
+
+        .language-html .tag { color: #ff79c6; }
+        .language-html .attr-name { color: #50fa7b; }
+        .language-html .attr-value { color: #f1fa8c; }
+
+        .language-css .selector { color: #ff79c6; }
+        .language-css .property { color: #50fa7b; }
+        .language-css .value { color: #f1fa8c; }
+
+        .language-json .key { color: #50fa7b; }
+        .language-json .string { color: #f1fa8c; }
+        .language-json .number { color: #bd93f9; }
+
+        /* Light mode syntax highlighting */
+        body.light-mode .language-python .keyword { color: #d73a49; }
+        body.light-mode .language-python .string { color: #032f62; }
+        body.light-mode .language-python .comment { color: #6a737d; }
+        body.light-mode .language-python .number { color: #005cc5; }
+
+        body.light-mode .language-javascript .keyword { color: #d73a49; }
+        body.light-mode .language-javascript .string { color: #032f62; }
+        body.light-mode .language-javascript .comment { color: #6a737d; }
+        body.light-mode .language-javascript .number { color: #005cc5; }
+
+        body.light-mode .language-html .tag { color: #d73a49; }
+        body.light-mode .language-html .attr-name { color: #005cc5; }
+        body.light-mode .language-html .attr-value { color: #032f62; }
+
+        body.light-mode .language-css .selector { color: #d73a49; }
+        body.light-mode .language-css .property { color: #005cc5; }
+        body.light-mode .language-css .value { color: #032f62; }
+
+        body.light-mode .language-json .key { color: #005cc5; }
+        body.light-mode .language-json .string { color: #032f62; }
+        body.light-mode .language-json .number { color: #005cc5; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand ripple-logo" href="{{ url_for('index') }}">
+                <i class="fas fa-code-branch me-2"></i>RippleIt
+            </a>
+            <div class="navbar-nav ms-auto d-flex align-items-center">
+                <a class="nav-link" href="{{ url_for('index') }}">
+                    <i class="fas fa-home me-1"></i>Home
+                </a>
+                <a class="nav-link" href="{{ url_for('list_projects') }}">
+                    <i class="fas fa-folder me-1"></i>Projects
+                </a>
+                <button class="theme-toggle" id="themeToggle" title="Toggle theme">
+                    <i class="fas fa-moon" id="themeIcon"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mt-4">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Theme management
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            const body = document.body;
+            const themeIcon = document.getElementById('themeIcon');
+            
+            if (savedTheme === 'light') {
+                body.classList.add('light-mode');
+                themeIcon.className = 'fas fa-sun';
+            } else {
+                body.classList.remove('light-mode');
+                themeIcon.className = 'fas fa-moon';
+            }
+        }
+
+        function toggleTheme() {
+            const body = document.body;
+            const themeIcon = document.getElementById('themeIcon');
+            
+            if (body.classList.contains('light-mode')) {
+                body.classList.remove('light-mode');
+                themeIcon.className = 'fas fa-moon';
+                localStorage.setItem('theme', 'dark');
+            } else {
+                body.classList.add('light-mode');
+                themeIcon.className = 'fas fa-sun';
+                localStorage.setItem('theme', 'light');
+            }
+        }
+
+        // Initialize theme on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initTheme();
+            
+            // Add theme toggle event listener
+            document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+        });
+
+        // Add loading states and animations
+        function showLoading(element) {
+            element.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Loading...';
+            element.disabled = true;
+        }
+
+        function hideLoading(element, originalText) {
+            element.innerHTML = originalText;
+            element.disabled = false;
+        }
+
+        // Add ripple effect to buttons
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('btn')) {
+                const ripple = document.createElement('span');
+                const rect = e.target.getBoundingClientRect();
+                const size = Math.max(rect.width, rect.height);
+                const x = e.clientX - rect.left - size / 2;
+                const y = e.clientY - rect.top - size / 2;
+                
+                ripple.style.width = ripple.style.height = size + 'px';
+                ripple.style.left = x + 'px';
+                ripple.style.top = y + 'px';
+                ripple.classList.add('ripple');
+                
+                e.target.appendChild(ripple);
+                setTimeout(() => ripple.remove(), 600);
+            }
+        });
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
