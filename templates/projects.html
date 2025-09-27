@@ -11,15 +11,20 @@
                     <h2 class="card-title mb-0">
                         <i class="fas fa-folder me-2"></i>Cloned Projects
                     </h2>
-                    <a href="{{ url_for('index') }}" class="btn btn-primary">
-                        <i class="fas fa-plus me-2"></i>Clone New Project
-                    </a>
+                    <div>
+                        <button class="btn btn-outline-primary me-2" id="updateAllBtn" onclick="updateAllProjects()">
+                            <i class="fas fa-sync-alt me-2"></i>Update All
+                        </button>
+                        <a href="{{ url_for('index') }}" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>Clone New Project
+                        </a>
+                    </div>
                 </div>
                 
                 {% if projects %}
                 <div class="row">
                     {% for project in projects %}
-                    <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="col-12 mb-4">
                         <div class="card project-card h-100" onclick="viewProject('{{ project.name }}')">
                             <div class="card-body">
                                 <div class="d-flex align-items-center mb-3">
@@ -28,16 +33,38 @@
                                     </div>
                                     <div class="flex-grow-1">
                                         <h5 class="card-title mb-1">{{ project.name }}</h5>
-                                        <small class="text-muted">{{ project.path }}</small>
+                                        <small class="text-muted text-break">{{ project.path }}</small>
+                                        <div class="mt-1">
+                                            <span class="badge bg-secondary">
+                                                <i class="fas fa-code-branch me-1"></i>{{ project.branch }}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="d-flex justify-content-between align-items-center">
                                     <button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); viewProject('{{ project.name }}')">
                                         <i class="fas fa-eye me-1"></i>View
                                     </button>
-                                    <button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); deleteProject('{{ project.name }}')">
-                                        <i class="fas fa-trash me-1"></i>Delete
-                                    </button>
+                                    <div>
+                                        <button class="btn btn-sm btn-outline-warning me-1" onclick="event.stopPropagation(); window.location.href='/project/{{ project.name }}/visualize'" title="Visualize project">
+                                            <i class="fas fa-project-diagram"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-info me-1" onclick="event.stopPropagation(); window.location.href='/project/{{ project.name }}/commits'" title="View commits">
+                                            <i class="fas fa-history"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-primary me-1" onclick="event.stopPropagation(); window.location.href='/project/{{ project.name }}/analysis'" title="Project analysis">
+                                            <i class="fas fa-chart-line"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-success me-1" onclick="event.stopPropagation(); updateProject('{{ project.name }}')" title="Update to latest commit">
+                                            <i class="fas fa-sync-alt"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-secondary me-1" onclick="event.stopPropagation(); showBranchModal('{{ project.name }}', '{{ project.branch }}')" title="Switch branch">
+                                            <i class="fas fa-code-branch"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); deleteProject('{{ project.name }}')">
+                                            <i class="fas fa-trash me-1"></i>Delete
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -54,6 +81,36 @@
                     </a>
                 </div>
                 {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Branch Switch Modal -->
+<div class="modal fade" id="branchModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Switch Branch</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Current Branch:</label>
+                    <span class="badge bg-secondary" id="currentBranchBadge">Loading...</span>
+                </div>
+                <div class="mb-3">
+                    <label for="branchSelect" class="form-label">Select Branch:</label>
+                    <select class="form-select" id="branchSelect">
+                        <option value="">Loading branches...</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="switchBranchBtn">
+                    <i class="fas fa-code-branch me-2"></i>Switch Branch
+                </button>
             </div>
         </div>
     </div>
@@ -166,5 +223,147 @@ function showAlert(type, message) {
         }
     }, 5000);
 }
+
+async function updateProject(projectName) {
+    const btn = document.querySelector(`button[onclick*="updateProject('${projectName}')"]`);
+    const originalContent = btn.innerHTML;
+    
+    showLoading(btn);
+    
+    try {
+        const response = await fetch(`/update_project/${projectName}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showAlert('success', data.message);
+        } else {
+            showAlert('danger', data.error || 'Failed to update project');
+        }
+    } catch (error) {
+        showAlert('danger', 'An error occurred while updating the project');
+    } finally {
+        hideLoading(btn, originalContent);
+    }
+}
+
+async function updateAllProjects() {
+    const btn = document.getElementById('updateAllBtn');
+    const originalContent = btn.innerHTML;
+    
+    showLoading(btn);
+    
+    try {
+        const response = await fetch('/update_all_projects', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showAlert('success', data.message);
+        } else {
+            showAlert('danger', data.error || 'Failed to update projects');
+        }
+    } catch (error) {
+        showAlert('danger', 'An error occurred while updating projects');
+    } finally {
+        hideLoading(btn, originalContent);
+    }
+}
+
+// Branch switching functionality
+let currentProjectName = null;
+
+async function showBranchModal(projectName, currentBranch) {
+    currentProjectName = projectName;
+    
+    // Update current branch badge
+    document.getElementById('currentBranchBadge').textContent = currentBranch;
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('branchModal'));
+    modal.show();
+    
+    // Load branches
+    try {
+        const response = await fetch(`/get_branches/${projectName}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            const branchSelect = document.getElementById('branchSelect');
+            branchSelect.innerHTML = '';
+            
+            data.branches.forEach(branch => {
+                const option = document.createElement('option');
+                option.value = branch;
+                option.textContent = branch;
+                if (branch === currentBranch) {
+                    option.selected = true;
+                }
+                branchSelect.appendChild(option);
+            });
+        } else {
+            showAlert('danger', data.error || 'Failed to load branches');
+        }
+    } catch (error) {
+        showAlert('danger', 'Error loading branches');
+    }
+}
+
+document.getElementById('switchBranchBtn').addEventListener('click', async function() {
+    if (!currentProjectName) return;
+    
+    const branchSelect = document.getElementById('branchSelect');
+    const selectedBranch = branchSelect.value;
+    
+    if (!selectedBranch) {
+        showAlert('danger', 'Please select a branch');
+        return;
+    }
+    
+    const btn = this;
+    const originalText = btn.innerHTML;
+    showLoading(btn);
+    
+    try {
+        const response = await fetch(`/switch_branch/${currentProjectName}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ branch: selectedBranch })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('branchModal'));
+            modal.hide();
+            
+            showAlert('success', data.message);
+            
+            // Reload page to update branch display
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        } else {
+            showAlert('danger', data.error || 'Failed to switch branch');
+        }
+    } catch (error) {
+        showAlert('danger', 'Error switching branch');
+    } finally {
+        hideLoading(btn, originalText);
+    }
+});
 </script>
 {% endblock %}

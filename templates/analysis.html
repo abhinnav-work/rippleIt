@@ -1,0 +1,462 @@
+{% extends "base.html" %}
+
+{% block title %}{{ project_name }} - Analysis - RippleIt{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <h2 class="card-title mb-1">
+                            <i class="fas fa-chart-line me-2"></i>{{ project_name }} - Analysis
+                        </h2>
+                        <small class="text-muted">Comprehensive project analysis and code quality metrics</small>
+                    </div>
+                    <div>
+                        <a href="/project/{{ project_name }}" class="btn btn-outline-secondary me-2">
+                            <i class="fas fa-arrow-left me-2"></i>Back to Project
+                        </a>
+                        <a href="/projects" class="btn btn-outline-secondary">
+                            <i class="fas fa-list me-2"></i>All Projects
+                        </a>
+                    </div>
+                </div>
+                
+                <div id="analysisContent">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Loading analysis...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Load analysis data
+async function loadAnalysis() {
+    try {
+        const response = await fetch(`/api/project/{{ project_name }}/analysis`);
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            displayAnalysis(data.analysis);
+        } else {
+            document.getElementById('analysisContent').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Failed to load analysis: ${data.error || 'Unknown error'}
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Error loading analysis:', error);
+        document.getElementById('analysisContent').innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Error loading analysis: ${error.message}
+            </div>
+        `;
+    }
+}
+
+// Display analysis data
+function displayAnalysis(analysis) {
+    const android = analysis.android_analysis;
+    const gradle = analysis.gradle_analysis;
+    const manifest = analysis.manifest_analysis;
+    const stats = analysis.project_stats;
+    const lint = analysis.lint_analysis;
+    const codeQuality = analysis.code_quality;
+    const security = analysis.security_analysis;
+    const performance = analysis.performance_analysis;
+    
+    let html = `
+        <!-- Overview Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title text-primary">${stats.total_files}</h5>
+                        <p class="card-text">Total Files</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title text-success">${stats.total_directories}</h5>
+                        <p class="card-text">Directories</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title text-info">${formatFileSize(stats.total_size)}</h5>
+                        <p class="card-text">Total Size</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title text-warning">${Object.keys(stats.file_types).length}</h5>
+                        <p class="card-text">File Types</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Quality Scores -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <h6 class="card-title">Security Score</h6>
+                        <div class="progress mb-2" style="height: 20px;">
+                            <div class="progress-bar ${getScoreColor(security.security_score)}" 
+                                 style="width: ${security.security_score}%">${security.security_score}%</div>
+                        </div>
+                        <small class="text-muted">${security.security_issues.length} issues found</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <h6 class="card-title">Performance Score</h6>
+                        <div class="progress mb-2" style="height: 20px;">
+                            <div class="progress-bar ${getScoreColor(performance.performance_score)}" 
+                                 style="width: ${performance.performance_score}%">${performance.performance_score}%</div>
+                        </div>
+                        <small class="text-muted">${performance.performance_issues.length} issues found</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <h6 class="card-title">Code Quality</h6>
+                        <div class="progress mb-2" style="height: 20px;">
+                            <div class="progress-bar ${getScoreColor(100 - codeQuality.code_smells.length * 10)}" 
+                                 style="width: ${Math.max(0, 100 - codeQuality.code_smells.length * 10)}%">${Math.max(0, 100 - codeQuality.code_smells.length * 10)}%</div>
+                        </div>
+                        <small class="text-muted">${codeQuality.code_smells.length} code smells</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Lint Analysis -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-bug me-2"></i>Lint Analysis</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <h4 class="text-danger">${lint.issues_by_severity.error}</h4>
+                                    <small class="text-muted">Errors</small>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <h4 class="text-warning">${lint.issues_by_severity.warning}</h4>
+                                    <small class="text-muted">Warnings</small>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <h4 class="text-info">${lint.issues_by_severity.info}</h4>
+                                    <small class="text-muted">Info</small>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <h4 class="text-primary">${lint.total_issues}</h4>
+                                    <small class="text-muted">Total Issues</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        ${lint.recommendations.length > 0 ? `
+                            <div class="mt-3">
+                                <h6>Recommendations:</h6>
+                                <ul class="list-group list-group-flush">
+                                    ${lint.recommendations.map(rec => `
+                                        <li class="list-group-item">
+                                            <i class="fas fa-lightbulb text-warning me-2"></i>${rec}
+                                        </li>
+                                    `).join('')}
+                                </ul>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Code Quality Metrics -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-code me-2"></i>Code Quality Metrics</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="mb-2"><strong>Total Lines:</strong> ${codeQuality.code_metrics.total_lines}</div>
+                                <div class="mb-2"><strong>Code Lines:</strong> ${codeQuality.code_metrics.code_lines}</div>
+                                <div class="mb-2"><strong>Comment Lines:</strong> ${codeQuality.code_metrics.comment_lines}</div>
+                                <div class="mb-2"><strong>Blank Lines:</strong> ${codeQuality.code_metrics.blank_lines}</div>
+                            </div>
+                            <div class="col-6">
+                                <div class="mb-2"><strong>Avg Method Length:</strong> ${codeQuality.code_metrics.average_method_length.toFixed(1)}</div>
+                                <div class="mb-2"><strong>Avg Class Length:</strong> ${codeQuality.code_metrics.average_class_length.toFixed(1)}</div>
+                                <div class="mb-2"><strong>Test Coverage:</strong> ${codeQuality.test_coverage}%</div>
+                                <div class="mb-2"><strong>Duplications:</strong> ${codeQuality.duplications}</div>
+                            </div>
+                        </div>
+                        
+                        ${codeQuality.code_smells.length > 0 ? `
+                            <div class="mt-3">
+                                <h6>Code Smells:</h6>
+                                <ul class="list-group list-group-flush">
+                                    ${codeQuality.code_smells.map(smell => `
+                                        <li class="list-group-item">
+                                            <i class="fas fa-exclamation-triangle text-warning me-2"></i>${smell}
+                                        </li>
+                                    `).join('')}
+                                </ul>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-shield-alt me-2"></i>Security Analysis</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <h6>Security Issues (${security.security_issues.length}):</h6>
+                            ${security.security_issues.length > 0 ? `
+                                <div style="max-height: 200px; overflow-y: auto;">
+                                    ${security.security_issues.map(issue => `
+                                        <div class="alert alert-${issue.type === 'error' ? 'danger' : 'warning'} py-2 mb-2">
+                                            <small><strong>${issue.type.toUpperCase()}:</strong> ${issue.message}</small>
+                                            <br><small class="text-muted">${issue.file}</small>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            ` : '<p class="text-success">No security issues found</p>'}
+                        </div>
+                        
+                        ${security.permissions_analysis.dangerous.length > 0 ? `
+                            <div class="mt-3">
+                                <h6>Dangerous Permissions:</h6>
+                                <div class="row">
+                                    ${security.permissions_analysis.dangerous.map(perm => `
+                                        <div class="col-12 mb-1">
+                                            <span class="badge bg-danger">${perm}</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Performance Analysis -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-tachometer-alt me-2"></i>Performance Analysis</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <h6>Performance Issues (${performance.performance_issues.length}):</h6>
+                                ${performance.performance_issues.length > 0 ? `
+                                    <div style="max-height: 150px; overflow-y: auto;">
+                                        ${performance.performance_issues.map(issue => `
+                                            <div class="alert alert-${issue.type === 'warning' ? 'warning' : 'info'} py-2 mb-2">
+                                                <small><strong>${issue.type.toUpperCase()}:</strong> ${issue.message}</small>
+                                                <br><small class="text-muted">${issue.file}</small>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                ` : '<p class="text-success">No performance issues found</p>'}
+                            </div>
+                            <div class="col-md-4">
+                                <h6>Memory Leaks (${performance.memory_leaks.length}):</h6>
+                                ${performance.memory_leaks.length > 0 ? `
+                                    <div style="max-height: 150px; overflow-y: auto;">
+                                        ${performance.memory_leaks.map(leak => `
+                                            <div class="alert alert-warning py-2 mb-2">
+                                                <small><strong>${leak.type.toUpperCase()}:</strong> ${leak.message}</small>
+                                                <br><small class="text-muted">${leak.file}</small>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                ` : '<p class="text-success">No memory leaks detected</p>'}
+                            </div>
+                            <div class="col-md-4">
+                                <h6>UI Performance (${performance.ui_performance.length}):</h6>
+                                ${performance.ui_performance.length > 0 ? `
+                                    <div style="max-height: 150px; overflow-y: auto;">
+                                        ${performance.ui_performance.map(ui => `
+                                            <div class="alert alert-info py-2 mb-2">
+                                                <small><strong>${ui.type.toUpperCase()}:</strong> ${ui.message}</small>
+                                                <br><small class="text-muted">${ui.file}</small>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                ` : '<p class="text-success">No UI performance issues</p>'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Android Project Analysis -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fab fa-android me-2"></i>Android Project Analysis</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-2"><strong>Project Type:</strong> <span class="badge bg-info">${android.project_type}</span></div>
+                        <div class="mb-2"><strong>Build System:</strong> <span class="badge bg-success">${android.build_system}</span></div>
+                        ${android.languages.length > 0 ? `<div class="mb-2"><strong>Languages:</strong> ${android.languages.map(lang => `<span class="badge bg-warning">${lang}</span>`).join(' ')}</div>` : ''}
+                        ${android.android_directories.length > 0 ? `<div class="mb-2"><strong>Android Directories:</strong> ${android.android_directories.map(dir => `<span class="badge bg-secondary">${dir}</span>`).join(' ')}</div>` : ''}
+                        
+                        <div class="mt-3">
+                            <h6>Features:</h6>
+                            <div class="row">
+                                <div class="col-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" ${android.has_android_manifest ? 'checked' : ''} disabled>
+                                        <label class="form-check-label">Android Manifest</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" ${android.has_gradle_files ? 'checked' : ''} disabled>
+                                        <label class="form-check-label">Gradle Files</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" ${android.has_kotlin_files ? 'checked' : ''} disabled>
+                                        <label class="form-check-label">Kotlin Files</label>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" ${android.has_java_files ? 'checked' : ''} disabled>
+                                        <label class="form-check-label">Java Files</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" ${android.has_xml_resources ? 'checked' : ''} disabled>
+                                        <label class="form-check-label">XML Resources</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" ${android.has_native_code ? 'checked' : ''} disabled>
+                                        <label class="form-check-label">Native Code</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-cogs me-2"></i>Gradle Dependencies</h6>
+                    </div>
+                    <div class="card-body">
+                        ${gradle.gradle_files.length > 0 ? `<div class="mb-2"><strong>Gradle Files:</strong> ${gradle.gradle_files.length}</div>` : ''}
+                        ${gradle.has_kotlin_dsl ? `<div class="mb-2"><span class="badge bg-primary">Kotlin DSL</span></div>` : ''}
+                        
+                        ${gradle.dependencies.length > 0 ? `
+                            <div class="mb-2"><strong>Dependencies (${gradle.dependencies.length}):</strong></div>
+                            <div style="max-height: 200px; overflow-y: auto;">
+                                ${gradle.dependencies.slice(0, 10).map(dep => `
+                                    <div class="mb-1">
+                                        <span class="badge bg-primary">${dep.group}:${dep.artifact}</span>
+                                        <small class="text-muted">${dep.version}</small>
+                                    </div>
+                                `).join('')}
+                                ${gradle.dependencies.length > 10 ? `<small class="text-muted">... and ${gradle.dependencies.length - 10} more</small>` : ''}
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- File Types Distribution -->
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-chart-pie me-2"></i>File Types Distribution</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            ${Object.entries(stats.file_types)
+                                .sort((a, b) => b[1] - a[1])
+                                .slice(0, 15)
+                                .map(([type, count]) => `
+                                    <div class="col-md-2 col-sm-4 col-6 mb-2">
+                                        <div class="d-flex justify-content-between">
+                                            <span class="badge bg-secondary">${type}</span>
+                                            <span class="text-muted">${count}</span>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('analysisContent').innerHTML = html;
+}
+
+// Helper functions
+function getScoreColor(score) {
+    if (score >= 80) return 'bg-success';
+    if (score >= 60) return 'bg-warning';
+    return 'bg-danger';
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+// Load analysis on page load
+document.addEventListener('DOMContentLoaded', loadAnalysis);
+</script>
+{% endblock %}

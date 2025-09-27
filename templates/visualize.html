@@ -1,0 +1,945 @@
+{% extends "base.html" %}
+
+{% block title %}Visualize - {{ project_name }} - RippleIt{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="card-title mb-0">
+                        <i class="fab fa-android me-2"></i>Android Project Visualization
+                    </h2>
+                    <p class="text-muted mb-0">{{ project_name }}</p>
+                </div>
+                    <div>
+                        <a href="/project/{{ project_name }}" class="btn btn-outline-primary me-2">
+                            <i class="fas fa-folder me-2"></i>View Project
+                        </a>
+                        <a href="/projects" class="btn btn-primary">
+                            <i class="fas fa-arrow-left me-2"></i>Back to Projects
+                        </a>
+                    </div>
+                </div>
+                
+                <div id="visualizationContainer">
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading visualization...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Loading project visualization...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadVisualization();
+});
+
+async function loadVisualization() {
+    const container = document.getElementById('visualizationContainer');
+    
+    try {
+        const response = await fetch(`/api/project/{{ project_name }}/visualize`);
+        const data = await response.json();
+        
+        if (data.success) {
+            displayVisualization(data.structure, data.stats);
+        } else {
+            container.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    ${data.error || 'Failed to load visualization'}
+                </div>
+            `;
+        }
+    } catch (error) {
+        container.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-circle me-2"></i>
+                An error occurred while loading visualization
+            </div>
+        `;
+    }
+}
+
+function displayVisualization(structure, stats) {
+    const container = document.getElementById('visualizationContainer');
+    
+    const statsHtml = `
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="fas fa-file fa-2x text-primary mb-2"></i>
+                        <h5 class="card-title">${stats.total_files}</h5>
+                        <p class="card-text text-muted">Total Files</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="fas fa-folder fa-2x text-info mb-2"></i>
+                        <h5 class="card-title">${stats.total_directories}</h5>
+                        <p class="card-text text-muted">Directories</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="fas fa-hdd fa-2x text-warning mb-2"></i>
+                        <h5 class="card-title">${formatFileSize(stats.total_size)}</h5>
+                        <p class="card-text text-muted">Total Size</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="fas fa-code fa-2x text-success mb-2"></i>
+                        <h5 class="card-title">${Object.keys(stats.file_types).length}</h5>
+                        <p class="card-text text-muted">File Types</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const fileTypesHtml = `
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-chart-pie me-2"></i>File Types Distribution</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            ${Object.entries(stats.file_types)
+                                .sort((a, b) => b[1] - a[1])
+                                .slice(0, 10)
+                                .map(([type, count]) => `
+                                    <div class="col-md-6 col-sm-6 mb-2">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="badge bg-secondary">${type}</span>
+                                            <span class="text-muted">${count} files</span>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fab fa-android me-2"></i>Android Project Analysis</h6>
+                    </div>
+                    <div class="card-body">
+                        ${displayAndroidAnalysis(stats.android_analysis)}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const gradleHtml = stats.gradle_analysis.dependencies.length > 0 ? `
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-cogs me-2"></i>Gradle Dependencies</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            ${stats.gradle_analysis.dependencies.slice(0, 15).map(dep => `
+                                <div class="col-md-4 col-sm-6 mb-2">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="badge bg-primary">${dep.group}:${dep.artifact}</span>
+                                        <span class="text-muted">${dep.version}</span>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    ` : '';
+    
+    const manifestHtml = stats.manifest_analysis.package_name ? `
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-file-code me-2"></i>Android Manifest Analysis</h6>
+                    </div>
+                    <div class="card-body">
+                        ${displayManifestAnalysis(stats.manifest_analysis)}
+                    </div>
+                </div>
+            </div>
+        </div>
+    ` : '';
+    
+    const structureHtml = `
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="mb-0"><i class="fas fa-sitemap me-2"></i>Interactive Project Structure</h6>
+                    <small class="text-muted">Complete recursive file structure with interactive features</small>
+                </div>
+                <div class="btn-group btn-group-sm" role="group">
+                    <button class="btn btn-outline-primary" onclick="expandAll()" title="Expand All">
+                        <i class="fas fa-expand-arrows-alt me-1"></i>Expand All
+                    </button>
+                    <button class="btn btn-outline-secondary" onclick="collapseAll()" title="Collapse All">
+                        <i class="fas fa-compress-arrows-alt me-1"></i>Collapse All
+                    </button>
+                    <button class="btn btn-outline-info" onclick="showProjectOverview()" title="Project Overview">
+                        <i class="fas fa-info-circle me-1"></i>Overview
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" class="form-control" id="structureSearch" placeholder="Search files and folders..." onkeyup="filterStructure(this.value)">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="btn-group btn-group-sm w-100" role="group">
+                            <input type="radio" class="btn-check" name="viewMode" id="treeView" autocomplete="off" checked>
+                            <label class="btn btn-outline-primary" for="treeView">Tree View</label>
+                            
+                            <input type="radio" class="btn-check" name="viewMode" id="gridView" autocomplete="off">
+                            <label class="btn btn-outline-primary" for="gridView">Grid View</label>
+                            
+                            <input type="radio" class="btn-check" name="viewMode" id="listView" autocomplete="off">
+                            <label class="btn btn-outline-primary" for="listView">List View</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="project-tree" id="projectTree">
+                    ${renderStructure(structure, 0)}
+                </div>
+            </div>
+        </div>
+    `;
+    
+    container.innerHTML = statsHtml + fileTypesHtml + structureHtml;
+    
+    // Add new sections if they exist
+    if (gradleHtml) {
+        const gradleSection = document.createElement('div');
+        gradleSection.innerHTML = gradleHtml;
+        container.appendChild(gradleSection);
+    }
+    
+    if (manifestHtml) {
+        const manifestSection = document.createElement('div');
+        manifestSection.innerHTML = manifestHtml;
+        container.appendChild(manifestSection);
+    }
+}
+
+function renderStructure(items, depth) {
+    if (!items || items.length === 0) return '';
+    
+    let html = '';
+    items.forEach((item, index) => {
+        const isLast = index === items.length - 1;
+        const icon = item.type === 'directory' ? 'fas fa-folder' : getFileIcon(item.extension);
+        const size = item.type === 'directory' ? formatFileSize(item.size) : formatFileSize(item.size);
+        const type = item.type === 'directory' ? 'Directory' : item.file_type || 'File';
+        const typeColor = getTypeColor(item.type, item.extension);
+        const hasChildren = item.children && item.children.length > 0;
+        
+        const fileCount = item.type === 'directory' && item.file_count ? ` (${item.file_count} files)` : '';
+        
+        html += `
+            <div class="tree-item" data-depth="${depth}" data-type="${item.type}">
+                <div class="tree-line">
+                    ${generateTreeLines(depth, isLast)}
+                </div>
+                <div class="tree-content" onclick="toggleItem(this, ${hasChildren})">
+                    <div class="d-flex align-items-center py-2 px-3">
+                        <div class="tree-icon me-2">
+                            <i class="${icon} ${typeColor}"></i>
+                        </div>
+                        <div class="tree-name flex-grow-1">
+                            <span class="fw-bold">${item.name}</span>
+                            <span class="badge ${getTypeBadgeClass(item.type, item.extension)} ms-2">${type}${fileCount}</span>
+                        </div>
+                        <div class="tree-size text-muted">
+                            ${size}
+                        </div>
+                        ${hasChildren ? '<i class="fas fa-chevron-right tree-arrow ms-2"></i>' : ''}
+                    </div>
+                </div>
+                <div class="tree-children" style="display: none;">
+                    ${item.children ? renderStructure(item.children, depth + 1) : ''}
+                </div>
+            </div>
+        `;
+    });
+    
+    return html;
+}
+
+function generateTreeLines(depth, isLast) {
+    let lines = '';
+    for (let i = 0; i < depth; i++) {
+        lines += '<div class="tree-line-vertical"></div>';
+    }
+    lines += `<div class="tree-line-horizontal ${isLast ? 'last' : ''}"></div>`;
+    return lines;
+}
+
+function getTypeColor(type, extension) {
+    if (type === 'directory') return 'text-warning';
+    
+    const colorMap = {
+        // Android-specific files
+        '.kt': 'text-info',
+        '.java': 'text-danger',
+        '.xml': 'text-success',
+        '.gradle': 'text-primary',
+        '.properties': 'text-secondary',
+        '.pro': 'text-warning',
+        '.aidl': 'text-info',
+        '.rs': 'text-primary',
+        '.rsh': 'text-primary',
+        '.so': 'text-success',
+        '.aar': 'text-info',
+        '.apk': 'text-success',
+        '.dex': 'text-warning',
+        '.class': 'text-danger',
+        '.jar': 'text-danger',
+        '.keystore': 'text-warning',
+        '.jks': 'text-warning',
+        '.p12': 'text-warning',
+        '.pem': 'text-success',
+        '.crt': 'text-success',
+        '.cer': 'text-success',
+        '.pfx': 'text-warning',
+        
+        // Android resource files
+        '.png': 'text-info',
+        '.jpg': 'text-info',
+        '.jpeg': 'text-info',
+        '.gif': 'text-info',
+        '.webp': 'text-info',
+        '.svg': 'text-primary',
+        '.9.png': 'text-info',
+        '.mp3': 'text-success',
+        '.wav': 'text-success',
+        '.ogg': 'text-success',
+        '.mp4': 'text-primary',
+        '.avi': 'text-primary',
+        '.mkv': 'text-primary',
+        '.ttf': 'text-secondary',
+        '.otf': 'text-secondary',
+        '.woff': 'text-secondary',
+        '.woff2': 'text-secondary',
+        
+        // Configuration files
+        '.json': 'text-warning',
+        '.yaml': 'text-secondary',
+        '.yml': 'text-secondary',
+        '.toml': 'text-secondary',
+        '.ini': 'text-muted',
+        '.cfg': 'text-muted',
+        '.conf': 'text-muted',
+        '.env': 'text-success',
+        '.gitignore': 'text-warning',
+        '.gitattributes': 'text-warning',
+        
+        // Documentation
+        '.md': 'text-info',
+        '.txt': 'text-muted',
+        '.rst': 'text-info',
+        '.adoc': 'text-info',
+        
+        // Build and development
+        '.sh': 'text-success',
+        '.bat': 'text-success',
+        '.ps1': 'text-primary',
+        '.dockerfile': 'text-primary',
+        '.lock': 'text-muted',
+        '.example': 'text-muted',
+        '.sample': 'text-muted',
+        
+        // Other common files
+        '.html': 'text-danger',
+        '.css': 'text-primary',
+        '.scss': 'text-primary',
+        '.sass': 'text-primary',
+        '.js': 'text-warning',
+        '.ts': 'text-info',
+        '.php': 'text-info',
+        '.rb': 'text-danger',
+        '.go': 'text-info',
+        '.rs': 'text-warning',
+        '.swift': 'text-warning',
+        '.scala': 'text-danger',
+        '.sql': 'text-info',
+        '.cpp': 'text-primary',
+        '.c': 'text-primary',
+        '.h': 'text-primary',
+        '.py': 'text-success'
+    };
+    
+    return colorMap[extension] || 'text-muted';
+}
+
+function getTypeBadgeClass(type, extension) {
+    if (type === 'directory') return 'bg-warning text-dark';
+    
+    const badgeMap = {
+        // Android-specific files
+        '.kt': 'bg-info',
+        '.java': 'bg-danger',
+        '.xml': 'bg-success',
+        '.gradle': 'bg-primary',
+        '.properties': 'bg-secondary',
+        '.pro': 'bg-warning text-dark',
+        '.aidl': 'bg-info',
+        '.rs': 'bg-primary',
+        '.rsh': 'bg-primary',
+        '.so': 'bg-success',
+        '.aar': 'bg-info',
+        '.apk': 'bg-success',
+        '.dex': 'bg-warning text-dark',
+        '.class': 'bg-danger',
+        '.jar': 'bg-danger',
+        '.keystore': 'bg-warning text-dark',
+        '.jks': 'bg-warning text-dark',
+        '.p12': 'bg-warning text-dark',
+        '.pem': 'bg-success',
+        '.crt': 'bg-success',
+        '.cer': 'bg-success',
+        '.pfx': 'bg-warning text-dark',
+        
+        // Android resource files
+        '.png': 'bg-info',
+        '.jpg': 'bg-info',
+        '.jpeg': 'bg-info',
+        '.gif': 'bg-info',
+        '.webp': 'bg-info',
+        '.svg': 'bg-primary',
+        '.9.png': 'bg-info',
+        '.mp3': 'bg-success',
+        '.wav': 'bg-success',
+        '.ogg': 'bg-success',
+        '.mp4': 'bg-primary',
+        '.avi': 'bg-primary',
+        '.mkv': 'bg-primary',
+        '.ttf': 'bg-secondary',
+        '.otf': 'bg-secondary',
+        '.woff': 'bg-secondary',
+        '.woff2': 'bg-secondary',
+        
+        // Configuration files
+        '.json': 'bg-warning text-dark',
+        '.yaml': 'bg-secondary',
+        '.yml': 'bg-secondary',
+        '.toml': 'bg-secondary',
+        '.ini': 'bg-light text-dark',
+        '.cfg': 'bg-light text-dark',
+        '.conf': 'bg-light text-dark',
+        '.env': 'bg-success',
+        '.gitignore': 'bg-warning text-dark',
+        '.gitattributes': 'bg-warning text-dark',
+        
+        // Documentation
+        '.md': 'bg-info',
+        '.txt': 'bg-light text-dark',
+        '.rst': 'bg-info',
+        '.adoc': 'bg-info',
+        
+        // Build and development
+        '.sh': 'bg-success',
+        '.bat': 'bg-success',
+        '.ps1': 'bg-primary',
+        '.dockerfile': 'bg-primary',
+        '.lock': 'bg-light text-dark',
+        '.example': 'bg-light text-dark',
+        '.sample': 'bg-light text-dark',
+        
+        // Other common files
+        '.html': 'bg-danger',
+        '.css': 'bg-primary',
+        '.scss': 'bg-primary',
+        '.sass': 'bg-primary',
+        '.js': 'bg-warning text-dark',
+        '.ts': 'bg-info',
+        '.php': 'bg-info',
+        '.rb': 'bg-danger',
+        '.go': 'bg-info',
+        '.rs': 'bg-warning text-dark',
+        '.swift': 'bg-warning text-dark',
+        '.scala': 'bg-danger',
+        '.sql': 'bg-info',
+        '.cpp': 'bg-primary',
+        '.c': 'bg-primary',
+        '.h': 'bg-primary',
+        '.py': 'bg-success'
+    };
+    
+    return badgeMap[extension] || 'bg-light text-dark';
+}
+
+function toggleItem(element, hasChildren) {
+    if (!hasChildren) return;
+    
+    const children = element.parentElement.querySelector('.tree-children');
+    const arrow = element.querySelector('.tree-arrow');
+    
+    if (children.style.display === 'none') {
+        children.style.display = 'block';
+        arrow.style.transform = 'rotate(90deg)';
+        element.classList.add('expanded');
+    } else {
+        children.style.display = 'none';
+        arrow.style.transform = 'rotate(0deg)';
+        element.classList.remove('expanded');
+    }
+}
+
+function getFileIcon(extension) {
+    const iconMap = {
+        // Android-specific files
+        '.kt': 'fab fa-android',
+        '.java': 'fab fa-java',
+        '.xml': 'fas fa-code',
+        '.gradle': 'fas fa-cogs',
+        '.properties': 'fas fa-cog',
+        '.pro': 'fas fa-shield-alt',
+        '.aidl': 'fas fa-plug',
+        '.rs': 'fas fa-code',
+        '.rsh': 'fas fa-code',
+        '.so': 'fas fa-microchip',
+        '.aar': 'fas fa-archive',
+        '.apk': 'fab fa-android',
+        '.dex': 'fas fa-file-code',
+        '.class': 'fab fa-java',
+        '.jar': 'fas fa-archive',
+        '.keystore': 'fas fa-key',
+        '.jks': 'fas fa-key',
+        '.p12': 'fas fa-key',
+        '.pem': 'fas fa-certificate',
+        '.crt': 'fas fa-certificate',
+        '.cer': 'fas fa-certificate',
+        '.pfx': 'fas fa-certificate',
+        
+        // Android resource files
+        '.png': 'fas fa-image',
+        '.jpg': 'fas fa-image',
+        '.jpeg': 'fas fa-image',
+        '.gif': 'fas fa-image',
+        '.webp': 'fas fa-image',
+        '.svg': 'fas fa-vector-square',
+        '.9.png': 'fas fa-th',
+        '.mp3': 'fas fa-music',
+        '.wav': 'fas fa-music',
+        '.ogg': 'fas fa-music',
+        '.mp4': 'fas fa-video',
+        '.avi': 'fas fa-video',
+        '.mkv': 'fas fa-video',
+        '.ttf': 'fas fa-font',
+        '.otf': 'fas fa-font',
+        '.woff': 'fas fa-font',
+        '.woff2': 'fas fa-font',
+        
+        // Configuration files
+        '.json': 'fas fa-brackets-curly',
+        '.yaml': 'fas fa-file-code',
+        '.yml': 'fas fa-file-code',
+        '.toml': 'fas fa-file-code',
+        '.ini': 'fas fa-cog',
+        '.cfg': 'fas fa-cog',
+        '.conf': 'fas fa-cog',
+        '.env': 'fas fa-key',
+        '.gitignore': 'fab fa-git-alt',
+        '.gitattributes': 'fab fa-git-alt',
+        
+        // Documentation
+        '.md': 'fab fa-markdown',
+        '.txt': 'fas fa-file-alt',
+        '.rst': 'fas fa-file-alt',
+        '.adoc': 'fas fa-file-alt',
+        
+        // Build and development
+        '.sh': 'fas fa-terminal',
+        '.bat': 'fas fa-terminal',
+        '.ps1': 'fas fa-terminal',
+        '.dockerfile': 'fab fa-docker',
+        '.lock': 'fas fa-lock',
+        '.example': 'fas fa-file-alt',
+        '.sample': 'fas fa-file-alt',
+        
+        // Other common files
+        '.html': 'fab fa-html5',
+        '.css': 'fab fa-css3-alt',
+        '.scss': 'fab fa-sass',
+        '.sass': 'fab fa-sass',
+        '.js': 'fab fa-js',
+        '.ts': 'fab fa-js',
+        '.php': 'fab fa-php',
+        '.rb': 'fas fa-gem',
+        '.go': 'fas fa-code',
+        '.rs': 'fas fa-code',
+        '.swift': 'fab fa-swift',
+        '.scala': 'fas fa-code',
+        '.sql': 'fas fa-database',
+        '.cpp': 'fas fa-code',
+        '.c': 'fas fa-code',
+        '.h': 'fas fa-code',
+        '.py': 'fab fa-python'
+    };
+    
+    return iconMap[extension] || 'fas fa-file';
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 B';
+    
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function displayAndroidAnalysis(analysis) {
+    let html = '';
+    
+    // Project type
+    html += `<div class="mb-2"><strong>Project Type:</strong> <span class="badge bg-info">${analysis.project_type}</span></div>`;
+    
+    // Build system
+    html += `<div class="mb-2"><strong>Build System:</strong> <span class="badge bg-success">${analysis.build_system}</span></div>`;
+    
+    // Languages
+    if (analysis.languages.length > 0) {
+        html += `<div class="mb-2"><strong>Languages:</strong> ${analysis.languages.map(lang => `<span class="badge bg-warning">${lang}</span>`).join(' ')}</div>`;
+    }
+    
+    // Android directories
+    if (analysis.android_directories.length > 0) {
+        html += `<div class="mb-2"><strong>Android Directories:</strong> ${analysis.android_directories.map(dir => `<span class="badge bg-secondary">${dir}</span>`).join(' ')}</div>`;
+    }
+    
+    // Features
+    const features = [];
+    if (analysis.has_android_manifest) features.push('Android Manifest');
+    if (analysis.has_gradle_files) features.push('Gradle Files');
+    if (analysis.has_kotlin_files) features.push('Kotlin Files');
+    if (analysis.has_java_files) features.push('Java Files');
+    if (analysis.has_xml_resources) features.push('XML Resources');
+    if (analysis.has_native_code) features.push('Native Code');
+    
+    if (features.length > 0) {
+        html += `<div class="mb-2"><strong>Features:</strong> ${features.map(feature => `<span class="badge bg-primary">${feature}</span>`).join(' ')}</div>`;
+    }
+    
+    return html;
+}
+
+function displayManifestAnalysis(analysis) {
+    let html = '';
+    
+    // Basic info
+    if (analysis.package_name) {
+        html += `<div class="mb-2"><strong>Package:</strong> <code>${analysis.package_name}</code></div>`;
+    }
+    
+    if (analysis.version_name) {
+        html += `<div class="mb-2"><strong>Version:</strong> ${analysis.version_name} (${analysis.version_code})</div>`;
+    }
+    
+    // SDK versions
+    if (analysis.min_sdk || analysis.target_sdk) {
+        html += `<div class="mb-2"><strong>SDK:</strong> Min: ${analysis.min_sdk || 'N/A'}, Target: ${analysis.target_sdk || 'N/A'}</div>`;
+    }
+    
+    // Components
+    if (analysis.activities.length > 0) {
+        html += `<div class="mb-2"><strong>Activities:</strong> ${analysis.activities.length}</div>`;
+    }
+    
+    if (analysis.services.length > 0) {
+        html += `<div class="mb-2"><strong>Services:</strong> ${analysis.services.length}</div>`;
+    }
+    
+    if (analysis.receivers.length > 0) {
+        html += `<div class="mb-2"><strong>Receivers:</strong> ${analysis.receivers.length}</div>`;
+    }
+    
+    if (analysis.providers.length > 0) {
+        html += `<div class="mb-2"><strong>Providers:</strong> ${analysis.providers.length}</div>`;
+    }
+    
+    // Permissions
+    if (analysis.permissions.length > 0) {
+        html += `<div class="mb-2"><strong>Permissions:</strong> ${analysis.permissions.length}</div>`;
+        html += `<div class="mb-2"><small class="text-muted">${analysis.permissions.slice(0, 5).join(', ')}${analysis.permissions.length > 5 ? '...' : ''}</small></div>`;
+    }
+    
+    return html;
+}
+
+function expandAll() {
+    const allChildren = document.querySelectorAll('.tree-children');
+    const allArrows = document.querySelectorAll('.tree-arrow');
+    
+    allChildren.forEach(children => {
+        children.style.display = 'block';
+    });
+    
+    allArrows.forEach(arrow => {
+        arrow.style.transform = 'rotate(90deg)';
+    });
+    
+    // Add expanded class to all tree-content elements
+    const allTreeContent = document.querySelectorAll('.tree-content');
+    allTreeContent.forEach(content => {
+        content.classList.add('expanded');
+    });
+}
+
+function collapseAll() {
+    const allChildren = document.querySelectorAll('.tree-children');
+    const allArrows = document.querySelectorAll('.tree-arrow');
+    
+    allChildren.forEach(children => {
+        children.style.display = 'none';
+    });
+    
+    allArrows.forEach(arrow => {
+        arrow.style.transform = 'rotate(0deg)';
+    });
+    
+    // Remove expanded class from all tree-content elements
+    const allTreeContent = document.querySelectorAll('.tree-content');
+    allTreeContent.forEach(content => {
+        content.classList.remove('expanded');
+    });
+}
+
+function toggleItem(element, hasChildren) {
+    if (!hasChildren) return;
+    
+    const children = element.parentElement.querySelector('.tree-children');
+    const arrow = element.querySelector('.tree-arrow');
+    
+    if (children.style.display === 'none') {
+        children.style.display = 'block';
+        arrow.style.transform = 'rotate(90deg)';
+        element.classList.add('expanded');
+    } else {
+        children.style.display = 'none';
+        arrow.style.transform = 'rotate(0deg)';
+        element.classList.remove('expanded');
+    }
+}
+
+</script>
+
+<style>
+.project-tree {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 14px;
+    position: relative;
+}
+
+.tree-item {
+    position: relative;
+    margin-bottom: 2px;
+    transition: all 0.2s ease;
+}
+
+.tree-content {
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    position: relative;
+    z-index: 2;
+}
+
+.tree-content:hover {
+    background: rgba(255, 255, 255, 0.08);
+    transform: translateX(2px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.tree-content.expanded {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.tree-line {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.tree-line-vertical {
+    position: absolute;
+    left: 20px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.1));
+}
+
+.tree-line-horizontal {
+    position: absolute;
+    left: 20px;
+    top: 50%;
+    width: 15px;
+    height: 1px;
+    background: linear-gradient(to right, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.1));
+    transform: translateY(-50%);
+}
+
+.tree-line-horizontal.last {
+    background: linear-gradient(to right, rgba(255, 255, 255, 0.3), transparent);
+}
+
+.tree-icon {
+    font-size: 16px;
+    width: 20px;
+    text-align: center;
+}
+
+.tree-name {
+    min-width: 0;
+}
+
+.tree-size {
+    font-size: 12px;
+    font-weight: 500;
+    opacity: 0.8;
+}
+
+.tree-arrow {
+    transition: transform 0.2s ease;
+    font-size: 12px;
+    opacity: 0.7;
+}
+
+.tree-children {
+    margin-left: 20px;
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    padding-left: 15px;
+    position: relative;
+}
+
+.tree-children:before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.2), transparent);
+}
+
+/* File type specific styling */
+.tree-item[data-type="directory"] .tree-content:hover {
+    background: rgba(255, 193, 7, 0.1);
+}
+
+.tree-item[data-type="file"] .tree-content:hover {
+    background: rgba(13, 110, 253, 0.1);
+}
+
+/* Animation for expanding/collapsing */
+.tree-children {
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.tree-children[style*="display: none"] {
+    max-height: 0;
+    opacity: 0;
+}
+
+.tree-children[style*="display: block"] {
+    max-height: 1000px;
+    opacity: 1;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .tree-children {
+        margin-left: 15px;
+        padding-left: 10px;
+    }
+    
+    .tree-line-horizontal {
+        width: 10px;
+    }
+    
+    .tree-line-vertical {
+        left: 15px;
+    }
+}
+
+/* Dark mode enhancements */
+body.light-mode .tree-content:hover {
+    background: rgba(0, 0, 0, 0.05);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+body.light-mode .tree-line-vertical,
+body.light-mode .tree-line-horizontal {
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.1));
+}
+
+body.light-mode .tree-children {
+    border-left-color: rgba(0, 0, 0, 0.1);
+}
+
+body.light-mode .tree-children:before {
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.1), transparent);
+}
+
+/* Loading animation */
+@keyframes pulse {
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
+}
+
+.tree-item.loading {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Hover effects for badges */
+.badge {
+    transition: all 0.2s ease;
+}
+
+.tree-content:hover .badge {
+    transform: scale(1.05);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+</style>
+{% endblock %}

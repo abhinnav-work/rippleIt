@@ -37,7 +37,7 @@
                     </div>
                     
                     <div class="row">
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <div class="input-group mb-3">
                                 <span class="input-group-text bg-transparent border-end-0">
                                     <i class="fas fa-user text-muted"></i>
@@ -48,7 +48,7 @@
                                        placeholder="Username (optional for private repos)">
                             </div>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <div class="input-group mb-3">
                                 <span class="input-group-text bg-transparent border-end-0">
                                     <i class="fas fa-key text-muted"></i>
@@ -59,12 +59,23 @@
                                        placeholder="Access Token (optional for private repos)">
                             </div>
                         </div>
+                        <div class="col-md-4">
+                            <div class="input-group mb-3">
+                                <span class="input-group-text bg-transparent border-end-0">
+                                    <i class="fas fa-code-branch text-muted"></i>
+                                </span>
+                                <input type="text" 
+                                       class="form-control border-start-0" 
+                                       id="branch" 
+                                       placeholder="Branch (default: main/master)">
+                            </div>
+                        </div>
                     </div>
                     
                     <div class="alert alert-info">
                         <i class="fas fa-info-circle me-2"></i>
                         <strong>Authentication:</strong> For private repositories, provide your username and access token. 
-                        For public repositories, these fields are optional.
+                        For public repositories, these fields are optional. <strong>Branch:</strong> Specify a branch name to clone a specific branch (defaults to main/master).
                     </div>
                 </form>
 
@@ -104,20 +115,6 @@
     </div>
 </div>
 
-<div class="row mt-4">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">
-                    <i class="fas fa-history me-2"></i>Recent Projects
-                </h5>
-                <div id="recentProjects">
-                    <p class="text-muted">No projects cloned yet. Start by cloning your first repository!</p>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 {% endblock %}
 
 {% block scripts %}
@@ -128,6 +125,7 @@ document.getElementById('cloneForm').addEventListener('submit', async function(e
     const gitUrl = document.getElementById('gitUrl').value;
     const username = document.getElementById('username').value;
     const accessToken = document.getElementById('accessToken').value;
+    const branch = document.getElementById('branch').value;
     const cloneBtn = document.getElementById('cloneBtn');
     const alertContainer = document.getElementById('alertContainer');
     const originalBtnText = cloneBtn.innerHTML;
@@ -145,7 +143,8 @@ document.getElementById('cloneForm').addEventListener('submit', async function(e
             body: JSON.stringify({ 
                 git_url: gitUrl,
                 username: username,
-                access_token: accessToken
+                access_token: accessToken,
+                branch: branch
             })
         });
         
@@ -165,6 +164,7 @@ document.getElementById('cloneForm').addEventListener('submit', async function(e
             document.getElementById('gitUrl').value = '';
             document.getElementById('username').value = '';
             document.getElementById('accessToken').value = '';
+            document.getElementById('branch').value = '';
             
             // Redirect to project view after a short delay
             setTimeout(() => {
@@ -194,34 +194,5 @@ document.getElementById('cloneForm').addEventListener('submit', async function(e
     }
 });
 
-// Load recent projects on page load
-async function loadRecentProjects() {
-    try {
-        const response = await fetch('/projects');
-        const text = await response.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(text, 'text/html');
-        const projects = doc.querySelectorAll('.project-card');
-        
-        const recentProjectsContainer = document.getElementById('recentProjects');
-        if (projects.length > 0) {
-            recentProjectsContainer.innerHTML = `
-                <div class="row">
-                    ${Array.from(projects).slice(0, 3).map(project => project.outerHTML).join('')}
-                </div>
-                <div class="text-center mt-3">
-                    <a href="/projects" class="btn btn-outline-primary">
-                        <i class="fas fa-eye me-2"></i>View All Projects
-                    </a>
-                </div>
-            `;
-        }
-    } catch (error) {
-        console.error('Error loading recent projects:', error);
-    }
-}
-
-// Load recent projects when page loads
-document.addEventListener('DOMContentLoaded', loadRecentProjects);
 </script>
 {% endblock %}
