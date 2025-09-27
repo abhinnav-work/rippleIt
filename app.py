@@ -31,16 +31,24 @@ def clone_repository():
         if not repo_name:
             repo_name = 'cloned_repo'
         
-        # Create unique directory name
-        clone_dir = os.path.join(PROJECTS_DIR, repo_name)
+        # Create unique submodule name
+        submodule_name = repo_name
         counter = 1
-        original_clone_dir = clone_dir
-        while os.path.exists(clone_dir):
-            clone_dir = f"{original_clone_dir}_{counter}"
+        original_submodule_name = submodule_name
+        submodule_path = os.path.join(PROJECTS_DIR, submodule_name)
+        
+        # Check if submodule already exists in git index
+        while os.path.exists(submodule_path) or is_submodule_in_index(submodule_path):
+            # Try to cleanup if it exists in index but not on filesystem
+            if not os.path.exists(submodule_path) and is_submodule_in_index(submodule_path):
+                cleanup_submodule_from_index(submodule_path)
+                break
+            submodule_name = f"{original_submodule_name}_{counter}"
+            submodule_path = os.path.join(PROJECTS_DIR, submodule_name)
             counter += 1
         
-        # Prepare git clone command
-        git_cmd = ['git', 'clone']
+        # Prepare git submodule add command
+        git_cmd = ['git', 'submodule', 'add']
         
         # Add authentication if provided
         if username and access_token:
@@ -62,9 +70,22 @@ def clone_repository():
         else:
             git_cmd.append(git_url)
         
-        git_cmd.append(clone_dir)
+        # Add submodule path (use relative path)
+        relative_submodule_path = os.path.relpath(submodule_path, os.getcwd())
+        git_cmd.append(relative_submodule_path)
         
-        # Clone the repository
+        # Initialize git repository if not already initialized
+        if not os.path.exists('.git'):
+            init_result = subprocess.run(
+                ['git', 'init'],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            if init_result.returncode != 0:
+                return jsonify({'error': f'Failed to initialize git repository: {init_result.stderr}'}), 400
+        
+        # Add the submodule
         result = subprocess.run(
             git_cmd,
             capture_output=True,
@@ -73,17 +94,28 @@ def clone_repository():
         )
         
         if result.returncode != 0:
-            return jsonify({'error': f'Failed to clone repository: {result.stderr}'}), 400
+            return jsonify({'error': f'Failed to add submodule: {result.stderr}'}), 400
+        
+        # Initialize and update the submodule
+        submodule_init_result = subprocess.run(
+            ['git', 'submodule', 'update', '--init', '--recursive', relative_submodule_path],
+            capture_output=True,
+            text=True,
+            timeout=300
+        )
+        
+        if submodule_init_result.returncode != 0:
+            return jsonify({'error': f'Failed to initialize submodule: {submodule_init_result.stderr}'}), 400
         
         return jsonify({
             'success': True,
-            'message': f'Repository cloned successfully to {clone_dir}',
-            'project_name': os.path.basename(clone_dir),
-            'project_path': clone_dir
+            'message': f'Repository added as submodule to {submodule_path}',
+            'project_name': submodule_name,
+            'project_path': submodule_path
         })
     
     except subprocess.TimeoutExpired:
-        return jsonify({'error': 'Clone operation timed out'}), 400
+        return jsonify({'error': 'Submodule operation timed out'}), 400
     except Exception as e:
         return jsonify({'error': f'An error occurred: {str(e)}'}), 500
 
@@ -224,17 +256,94 @@ def format_file_size(size_bytes):
     
     return f"{size_bytes:.1f} {size_names[i]}"
 
+def is_submodule_in_index(submodule_path):
+    """Check if a submodule path already exists in the git index"""
+    try:
+        # Convert to relative path for checking
+        relative_path = os.path.relpath(submodule_path, os.getcwd())
+        
+        # Check if the path exists in .gitmodules
+        if os.path.exists('.gitmodules'):
+            with open('.gitmodules', 'r') as f:
+                content = f.read()
+                if relative_path in content:
+                    return True
+        
+        # Check if the path exists in git index
+        result = subprocess.run(
+            ['git', 'ls-files', '--stage', relative_path],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        return result.returncode == 0 and result.stdout.strip() != ''
+    except:
+        return False
+
+def cleanup_submodule_from_index(submodule_path):
+    """Remove submodule from git index if it exists"""
+    try:
+        # Convert to relative path
+        relative_path = os.path.relpath(submodule_path, os.getcwd())
+        
+        # Remove from git index
+        subprocess.run(
+            ['git', 'rm', '--cached', relative_path],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        
+        # Try to deinitialize if it's a submodule
+        subprocess.run(
+            ['git', 'submodule', 'deinit', '-f', relative_path],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        
+        return True
+    except:
+        return False
+
 @app.route('/delete_project/<project_name>', methods=['POST'])
 def delete_project(project_name):
     try:
         project_path = os.path.join(PROJECTS_DIR, project_name)
-        if os.path.exists(project_path):
-            shutil.rmtree(project_path)
-            return jsonify({'success': True, 'message': 'Project deleted successfully'})
-        else:
+        if not os.path.exists(project_path):
             return jsonify({'error': 'Project not found'}), 404
+        
+        # Convert to relative path
+        relative_project_path = os.path.relpath(project_path, os.getcwd())
+        
+        # Remove submodule from git
+        submodule_remove_result = subprocess.run(
+            ['git', 'submodule', 'deinit', '-f', relative_project_path],
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+        
+        if submodule_remove_result.returncode != 0:
+            return jsonify({'error': f'Failed to deinitialize submodule: {submodule_remove_result.stderr}'}), 400
+        
+        # Remove submodule from .gitmodules and .git/config
+        submodule_rm_result = subprocess.run(
+            ['git', 'rm', '-f', relative_project_path],
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+        
+        if submodule_rm_result.returncode != 0:
+            return jsonify({'error': f'Failed to remove submodule: {submodule_rm_result.stderr}'}), 400
+        
+        # Remove the directory
+        shutil.rmtree(project_path)
+        
+        return jsonify({'success': True, 'message': 'Submodule deleted successfully'})
     except Exception as e:
-        return jsonify({'error': f'Failed to delete project: {str(e)}'}), 500
+        return jsonify({'error': f'Failed to delete submodule: {str(e)}'}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

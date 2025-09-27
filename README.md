@@ -10,6 +10,7 @@ A modern Flask web application for cloning and exploring remote Git repositories
 - 🎨 **Modern UI**: Beautiful, responsive design with smooth animations
 - 🗂️ **Project Management**: View, manage, and delete cloned projects
 - ⚡ **Fast & Lightweight**: Built with Flask for optimal performance
+- 🔗 **Git Submodules**: Cloned projects are added as Git submodules for better version control
 
 ## Installation
 
@@ -30,6 +31,7 @@ A modern Flask web application for cloning and exploring remote Git repositories
    - Enter a Git repository URL (e.g., `https://github.com/username/repository.git`)
    - For private repositories, enter your username and access token
    - Click "Clone Repository"
+   - The repository will be added as a Git submodule
    - Wait for the cloning process to complete
 
 2. **Browse Projects**:
@@ -86,10 +88,34 @@ RippleIt supports cloning private repositories using username and access tokens:
 - **GitLab**: User Settings → Access Tokens
 - **Bitbucket**: Personal settings → App passwords
 
+## Git Submodules
+
+RippleIt uses Git submodules to manage cloned repositories:
+
+- **Automatic Git Init**: The app initializes a Git repository if one doesn't exist
+- **Submodule Management**: Each cloned project becomes a Git submodule
+- **Dynamic .gitmodules**: The `.gitmodules` file is automatically updated when adding/removing projects
+- **Version Control**: All submodule changes are tracked in the main repository
+- **Easy Updates**: Use `git submodule update --remote` to update all submodules
+
+### Submodule Commands
+
+```bash
+# Update all submodules to latest
+git submodule update --remote
+
+# Initialize and update submodules
+git submodule update --init --recursive
+
+# Remove a submodule
+git submodule deinit -f <path>
+git rm -f <path>
+```
+
 ## Security Notes
 
 - The application runs in debug mode by default (change for production)
-- Cloned repositories are stored locally in the `cloned_projects` directory
+- Cloned repositories are stored as Git submodules in the `cloned_projects` directory
 - Access tokens are only used for cloning and are not stored
 - Be cautious when cloning repositories from untrusted sources
 - Consider implementing authentication for production use
